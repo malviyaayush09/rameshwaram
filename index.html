@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Counter Token</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --ink:#15181c; --muted:#6b7280;
+    --line:#e3e5ea; --orange:#e8521f; --green:#117a4a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);
+    font:15px/1.4 -apple-system,"Segoe UI",system-ui,sans-serif}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* Two columns on a counter screen: menu on the left, the running bill on the
+     right where it never moves. On a phone the bill drops below. */
+  .app{display:grid;grid-template-columns:1fr 340px;gap:12px;height:100vh;padding:12px}
+
+  /* ---- left: menu ---- */
+  /* min-width:0 on both grid children. Without it the tab strip's min-content
+     width -- every category name laid end to end -- props the column open and
+     the whole page scrolls sideways. */
+  .menu{display:flex;flex-direction:column;min-height:0;min-width:0}
+  .search{display:flex;gap:8px;margin-bottom:8px}
+  .search input{flex:1;padding:13px 14px;font:inherit;font-size:16px;
+    border:1px solid var(--line);border-radius:10px;background:#fff}
+  .search input:focus{outline:2px solid var(--orange);outline-offset:-1px}
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:thin}
+  .tabs button{white-space:nowrap;padding:8px 14px;font:inherit;font-size:13px;font-weight:600;
+    border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:99px;cursor:pointer}
+  .tabs button.on{background:var(--orange);border-color:var(--orange);color:#fff}
+  .grid{flex:1;overflow-y:auto;display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-content:start;padding-bottom:12px}
+  .item{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;text-align:left;font:inherit;cursor:pointer;display:flex;
+    flex-direction:column;gap:4px;min-height:72px;justify-content:space-between}
+  .item:active{background:#fff2ec;border-color:var(--orange)}
+  .item .n{font-size:13px;font-weight:600;line-height:1.25}
+  .item .p{font-size:14px;font-weight:700;color:var(--orange)}
+  .item .q{position:absolute}
+  .item.has{border-color:var(--orange);background:#fff7f4}
+  .item .badge{align-self:flex-start;background:var(--orange);color:#fff;font-size:11px;
+    font-weight:700;padding:1px 7px;border-radius:99px}
+  .cat{grid-column:1/-1;font-size:11px;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);padding:10px 2px 2px}
+
+  /* ---- right: the bill ---- */
+  .bill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    display:flex;flex-direction:column;min-height:0;min-width:0}
+  .bill header{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .tok{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .tokn{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1}
+  .lines{flex:1;overflow-y:auto;padding:6px 0}
+  .line{display:flex;align-items:center;gap:8px;padding:8px 16px}
+  .line .nm{flex:1;min-width:0;font-size:13px}
+  .line .nm small{display:block;color:var(--muted);font-size:11.5px}
+  .qty{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .qty button{width:30px;height:30px;border:0;background:#f6f7f9;font:inherit;font-size:16px;
+    font-weight:700;cursor:pointer;color:var(--ink);line-height:1}
+  .qty button:active{background:var(--orange);color:#fff}
+  .qty span{min-width:28px;text-align:center;font-size:13px;font-weight:700}
+  .line .amt{width:58px;text-align:right;font-size:13px;font-weight:700}
+  .empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:13.5px}
+  .totals{border-top:1px solid var(--line);padding:12px 16px}
+  .trow{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:3px 0}
+  .trow.big{font-size:19px;font-weight:800;color:var(--ink);padding-top:8px;margin-top:6px;
+    border-top:1px solid var(--line)}
+  .opts{display:flex;align-items:center;gap:10px;padding:2px 0 8px;font-size:12.5px;color:var(--muted)}
+  .opts label{display:flex;align-items:center;gap:6px;cursor:pointer}
+  .opts input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange)}
+  .opts input[type=number]{width:66px;padding:5px 7px;font:inherit;font-size:13px;
+    border:1px solid var(--line);border-radius:7px}
+  .acts{display:flex;gap:8px;padding:0 16px 14px}
+  .acts button{flex:1;padding:14px;border:0;border-radius:10px;font:inherit;font-size:14.5px;
+    font-weight:700;cursor:pointer}
+  .btn-print{background:var(--green);color:#fff}
+  .btn-print:disabled{background:#c6cbd1;cursor:not-allowed}
+  .btn-clear{flex:0 0 86px;background:#fff;color:var(--muted);border:1px solid var(--line)}
+
+  @media(max-width:860px){
+    .app{grid-template-columns:1fr;height:auto;min-height:100vh}
+    .bill{position:sticky;bottom:0}
+  }
+
+  /* ---- the printed token ----
+     80mm thermal roll. Everything on screen disappears; what comes out is the
+     token, the items and the total, in black on white at a size a cook can
+     read across a counter. */
+  .slip{display:none}
+  @media print{
+    @page{size:80mm auto;margin:4mm}
+    body{background:#fff}
+    .app{display:none !important}
+    .slip{display:block;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;
+      color:#000;width:72mm}
+    .slip *{color:#000 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .slip .shop{text-align:center;font-size:13pt;font-weight:800;letter-spacing:.5px}
+    .slip .when{text-align:center;font-size:8pt;margin-top:2px}
+    .slip .tbox{text-align:center;border:2px solid #000;border-radius:3mm;
+      padding:2mm 0;margin:3mm 0}
+    .slip .tlbl{font-size:8pt;letter-spacing:2px;text-transform:uppercase}
+    .slip .tnum{font-size:30pt;font-weight:800;line-height:1}
+    .slip table{width:100%;border-collapse:collapse;font-size:9.5pt}
+    .slip td{padding:1.2mm 0;vertical-align:top}
+    .slip td.q{width:9mm}
+    .slip td.a{width:16mm;text-align:right;white-space:nowrap}
+    .slip tr{break-inside:avoid}
+    .slip .rule{border-top:1px dashed #000;margin:2mm 0}
+    .slip .tot{display:flex;justify-content:space-between;font-size:12pt;font-weight:800}
+    .slip .sub{display:flex;justify-content:space-between;font-size:9pt}
+    .slip .foot{text-align:center;font-size:8pt;margin-top:3mm}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <section class="menu">
+    <div class="search">
+      <input id="q" type="search" placeholder="Type to find an item…" autocomplete="off">
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <aside class="bill">
+    <header>
+      <div class="tok">Token</div>
+      <div class="tokn num" id="tokn">—</div>
+    </header>
+    <div class="lines" id="lines"></div>
+    <div class="totals">
+      <div class="opts">
+        <label><input type="checkbox" id="gst" checked> GST 5%</label>
+        <label>Parcel ₹<input type="number" id="parcel" value="0" min="0" step="1"></label>
+      </div>
+      <div class="trow"><span>Subtotal</span><span class="num" id="sub">₹0</span></div>
+      <div class="trow" id="gstrow"><span>GST 5%</span><span class="num" id="gstv">₹0</span></div>
+      <div class="trow" id="parcelrow" style="display:none"><span>Parcel</span><span class="num" id="parcelv">₹0</span></div>
+      <div class="trow big"><span>Total</span><span class="num" id="tot">₹0</span></div>
+    </div>
+    <div class="acts">
+      <button class="btn-clear" id="clear">Clear</button>
+      <button class="btn-print" id="print" disabled>Print token</button>
+    </div>
+  </aside>
+</div>
+
+<!-- Built fresh on every print so it can never show a stale order. -->
+<div class="slip" id="slip"></div>
+
+<script>
+const MENU = [
+ ['Fresh Juice', [
+   ['Banana Lassi',76],['Pink Guava',110],['ABC (Cold Pressed)',100],['Carrot Juice',100],
+   ['Fresh Lime',48],['Lime Soda',67],['Mosambi Juice (Cold Pressed)',114],
+   ['Salt Lassi',77],['Sweet Lassi',77],['Water Melon Pulpy',86],
+ ]],
+ ['Milkshakes', [
+   ['Tender Coconut Milk Shake',143],['Cold Coffee Milk Shake',100],['Badam Milk Cold Shake',119],
+   ['Chocolate Milkshake',110],['Vanilla Milkshake',110],['Banana Lassi (shake)',86],
+   ['Belgum Choco Delight',238.10],['Oreo Milkshake',110],['Apple Milkshake',119],
+   ['Banana Milkshake',100],
+ ]],
+ ['Falooda', [
+   ['Royal Falooda',157],['Special Falooda',171],['Royal Rich Falooda',167],
+ ]],
+ ['Special Ice Cream', [
+   ['Fruit Salad Icecream',143],['Gud Bud',167],['Dilkhush',167],['Fruit Salad',100],
+ ]],
+ ['Scoops', [
+   ['Pista Ice Cream',81],['Butterscotch Ice Cream',81],['Chocolate Ice Cream',81],
+   ['Mango Ice Cream',81],['Strawberry Ice Cream',81],['Vanilla Ice Cream',81],
+ ]],
+ ['Vada', [
+   ['Dahi Vada',95],['Mini Vada Sambar Dip',76],['Uddin Vada',57],['Rasam Vada',76],
+ ]],
+ ['Beverages', [
+   ['Black Coffee',38],['Hot Badam Milk',52],['Boost',52],['Coffee',38],['Horlicks',52],
+   ['Masala Tea',38],['Milk',29],['Water Bottle (300ml)',50],['Water Bottle (750ml)',100],
+ ]],
+ ['Desserts', [
+   ['Carrot Halwa',90],['Carrot Halwa with Ice-Cream',152],['Gulab Jamun',52],
+   ['Gulab Jamun with Ice-Cream',95],['Kesari Bath Saffron',100],
+   ['Red Rice Puttu',0],   /* price not printed on the board -- set it here */
+   ['Bele Holige',67],['Panchamrutham',114],['Pheni with Saffron Badam Milk',133],
+   ['Saffron Kashi Halwa',86],
+ ]],
+ ['Bun Maska', [
+   ['Bun Maska',76],['Pal Bun with Badam Milk',133],
+ ]],
+ ['Poori', [
+   ['Poori Sagu',105],
+ ]],
+];
+
+const SHOP = 'RAMESHWARAM';      // printed at the top of every token
+const GST_RATE = 0.05;
+
+const $ = id => document.getElementById(id);
+const money = n => '₹' + (Math.round(n * 100) / 100).toLocaleString('en-IN',
+  { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+
+let cart = {};                   // "Category|Name" -> qty
+let tab  = 'All';
+let query = '';
+
+/* The token survives a refresh, a crash and the shop closing for the night.
+   It rolls over at midnight so numbers stay small and mean "today".
+
+   Browser storage can be unavailable -- a private window, blocked site data,
+   or the file opened in a way the browser treats as having no origin. Falling
+   straight back to 1 would hand two customers the same token, so an in-memory
+   counter carries the day instead. It only resets if the tab is closed. */
+let memTok = { d: null, n: 0 };
+function readTok() {
+  const today = new Date().toISOString().slice(0, 10);
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem('tok') || 'null'); } catch (e) {}
+  if (!s) s = memTok;
+  if (!s || s.d !== today) s = { d: today, n: 0 };
+  return s;
+}
+function nextToken() {
+  const s = readTok();
+  s.n += 1;
+  memTok = s;
+  try { localStorage.setItem('tok', JSON.stringify(s)); } catch (e) {}
+  return s.n;
+}
+function peekToken() { return readTok().n + 1; }
+
+function priceOf(key) {
+  const [c, n] = key.split('|');
+  const cat = MENU.find(x => x[0] === c);
+  const it = cat && cat[1].find(x => x[0] === n);
+  return it ? it[1] : 0;
+}
+
+function renderTabs() {
+  $('tabs').innerHTML = '';
+  ['All', ...MENU.map(m => m[0])].forEach(name => {
+    const b = document.createElement('button');
+    b.textContent = name;
+    if (name === tab) b.className = 'on';
+    b.onclick = () => { tab = name; renderTabs(); renderGrid(); };
+    $('tabs').appendChild(b);
+  });
+}
+
+function renderGrid() {
+  const g = $('grid');
+  g.innerHTML = '';
+  const q = query.trim().toLowerCase();
+  let shown = 0;
+  MENU.forEach(([cat, items]) => {
+    if (tab !== 'All' && tab !== cat) return;
+    const matches = items.filter(([n]) => !q || n.toLowerCase().includes(q));
+    if (!matches.length) return;
+    if (tab === 'All') {
+      const h = document.createElement('div');
+      h.className = 'cat'; h.textContent = cat; g.appendChild(h);
+    }
+    matches.forEach(([n, p]) => {
+      shown++;
+      const key = cat + '|' + n;
+      const b = document.createElement('button');
+      b.className = 'item' + (cart[key] ? ' has' : '');
+      b.innerHTML = '<span class="n"></span><span class="p"></span>';
+      b.querySelector('.n').textContent = n;
+      b.querySelector('.p').textContent = p ? money(p) : 'price?';
+      if (cart[key]) {
+        const bd = document.createElement('span');
+        bd.className = 'badge'; bd.textContent = '× ' + cart[key];
+        b.appendChild(bd);
+      }
+      b.onclick = () => { cart[key] = (cart[key] || 0) + 1; renderGrid(); renderBill(); };
+      g.appendChild(b);
+    });
+  });
+  if (!shown) {
+    const e = document.createElement('div');
+    e.className = 'cat'; e.textContent = 'Nothing matches "' + query + '"';
+    g.appendChild(e);
+  }
+}
+
+function totals() {
+  const sub = Object.entries(cart).reduce((s, [k, q]) => s + priceOf(k) * q, 0);
+  const gst = $('gst').checked ? sub * GST_RATE : 0;
+  const parcel = Math.max(0, parseFloat($('parcel').value) || 0);
+  return { sub, gst, parcel, total: sub + gst + parcel };
+}
+
+function renderBill() {
+  const L = $('lines');
+  L.innerHTML = '';
+  const keys = Object.keys(cart);
+  if (!keys.length) {
+    L.innerHTML = '<div class="empty">Tap an item to start an order.</div>';
+  }
+  keys.forEach(key => {
+    const [cat, name] = key.split('|');
+    const q = cart[key], p = priceOf(key);
+    const row = document.createElement('div');
+    row.className = 'line';
+    row.innerHTML =
+      '<div class="nm"><span></span><small></small></div>' +
+      '<div class="qty"><button>−</button><span class="num"></span><button>+</button></div>' +
+      '<div class="amt num"></div>';
+    row.querySelector('.nm span').textContent = name;
+    row.querySelector('.nm small').textContent = cat + ' · ' + money(p);
+    row.querySelector('.qty span').textContent = q;
+    row.querySelector('.amt').textContent = money(p * q);
+    const [minus, plus] = row.querySelectorAll('.qty button');
+    minus.onclick = () => { cart[key]--; if (cart[key] < 1) delete cart[key]; renderGrid(); renderBill(); };
+    plus.onclick  = () => { cart[key]++; renderGrid(); renderBill(); };
+    L.appendChild(row);
+  });
+
+  const t = totals();
+  $('sub').textContent = money(t.sub);
+  $('gstv').textContent = money(t.gst);
+  $('gstrow').style.display = $('gst').checked ? '' : 'none';
+  $('parcelv').textContent = money(t.parcel);
+  $('parcelrow').style.display = t.parcel > 0 ? '' : 'none';
+  $('tot').textContent = money(t.total);
+  $('print').disabled = !keys.length;
+  $('tokn').textContent = '#' + peekToken();
+}
+
+function buildSlip(token) {
+  const t = totals();
+  const now = new Date();
+  const when = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+             + '  ' + now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const rows = Object.entries(cart).map(([k, q]) => {
+    const name = k.split('|')[1];
+    return '<tr><td class="q">' + q + ' ×</td><td>' + name +
+           '</td><td class="a">' + money(priceOf(k) * q) + '</td></tr>';
+  }).join('');
+
+  $('slip').innerHTML =
+    '<div class="shop">' + SHOP + '</div>' +
+    '<div class="when">' + when + '</div>' +
+    '<div class="tbox"><div class="tlbl">Token</div><div class="tnum">' + token + '</div></div>' +
+    '<table>' + rows + '</table>' +
+    '<div class="rule"></div>' +
+    '<div class="sub"><span>Subtotal</span><span>' + money(t.sub) + '</span></div>' +
+    ($('gst').checked ? '<div class="sub"><span>GST 5%</span><span>' + money(t.gst) + '</span></div>' : '') +
+    (t.parcel > 0 ? '<div class="sub"><span>Parcel</span><span>' + money(t.parcel) + '</span></div>' : '') +
+    '<div class="rule"></div>' +
+    '<div class="tot"><span>TOTAL</span><span>' + money(t.total) + '</span></div>' +
+    '<div class="foot">Thank you · Please keep this token</div>';
+}
+
+$('print').onclick = () => {
+  const token = nextToken();          // burned only when a token is actually printed
+  buildSlip(token);
+  window.print();
+  cart = {};
+  $('parcel').value = 0;
+  renderGrid(); renderBill();
+  $('q').value = ''; query = ''; renderGrid();
+};
+
+$('clear').onclick = () => {
+  if (!Object.keys(cart).length || confirm('Clear this order?')) {
+    cart = {}; $('parcel').value = 0; renderGrid(); renderBill();
+  }
+};
+
+$('q').oninput = e => { query = e.target.value; renderGrid(); };
+$('gst').onchange = renderBill;
+$('parcel').oninput = renderBill;
+
+// Enter in the search box adds the only match, so a whole order can be typed.
+$('q').onkeydown = e => {
+  if (e.key !== 'Enter') return;
+  const q = query.trim().toLowerCase();
+  if (!q) return;
+  const hits = [];
+  MENU.forEach(([c, items]) => items.forEach(([n]) => {
+    if (n.toLowerCase().includes(q)) hits.push(c + '|' + n);
+  }));
+  if (hits.length === 1) {
+    cart[hits[0]] = (cart[hits[0]] || 0) + 1;
+    $('q').value = ''; query = '';
+    renderGrid(); renderBill();
+  }
+};
+
+renderTabs(); renderGrid(); renderBill();
+$('q').focus();
+</script>
+</body>
+</html>
