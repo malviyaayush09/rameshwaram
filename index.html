@@ -52,7 +52,14 @@
     display:flex;flex-direction:column;min-height:0;min-width:0}
   .bill header{padding:14px 16px;border-bottom:1px solid var(--line)}
   .tok{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-  .tokn{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1}
+  .tok em{font-style:normal;opacity:.75}
+  /* The number is tappable so the counter can set it back to where the paper
+     book left off, or correct it after a reprint. */
+  .tokn{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1;
+    cursor:pointer;display:inline-block;border-bottom:2px dashed var(--line);padding-bottom:1px}
+  .tokn:hover{color:var(--orange);border-bottom-color:var(--orange)}
+  #tokedit{font:inherit;font-size:30px;font-weight:800;width:120px;padding:2px 8px;
+    border:2px solid var(--orange);border-radius:8px;color:var(--ink)}
   .lines{flex:1;overflow-y:auto;padding:6px 0}
   .line{display:flex;align-items:center;gap:8px;padding:8px 16px}
   .line .nm{flex:1;min-width:0;font-size:13px}
@@ -128,8 +135,8 @@
 
   <aside class="bill">
     <header>
-      <div class="tok">Token</div>
-      <div class="tokn num" id="tokn">—</div>
+      <div class="tok">Token <em>· tap to change</em></div>
+      <div><span class="tokn num" id="tokn">—</span></div>
     </header>
     <div class="lines" id="lines"></div>
     <div class="totals">
@@ -153,7 +160,49 @@
 <div class="slip" id="slip"></div>
 
 <script>
+/* Both menu boards, in the order a counter works through them: food first,
+   then drinks and sweets. Categories and spellings follow the boards. */
 const MENU = [
+ ['Idli', [
+   ['Ghee Paddu (6 pcs)',105],['Idli - 2 pcs',71],['Rasam Idli (2 pcs)',90],
+   ['Idli with Neer Chutney - 2 pcs',81],['Idli 1pc & Vada 1pc',71],
+   ['Bengaluru Idli with Sambar Dip',81],['Butter Idli',81],['Ghee Idli',81],
+   ['Plain Idli',52],['Ghee Pudi Idli',100],['Ghee Sambar Button Idli',95],
+   ['Rava Idli (2 pcs)',100],
+ ]],
+ ['Dosae', [
+   ['Benne Masala Dosae',152],['Butter Khali Dosae',138],['Rava Masala Dosae',171],
+   ['Jain Masala Dosae (Jain Sambar)',152],['Ghee Plain Dosae',114],
+   ['Ghee Ragi Dosae (2 pcs)',114],['Ghee Pudi Plain Dosae',133],
+   ['Ghee Pudi Masala Dosae',148],['Garlic Roast Dosae',148],
+   ['Open Butter Masala Dosae',152],['Ghee Onion Dosae (2 pcs)',152],
+   ['Multi-Grain Dosae (2 pcs)',124],['Neer Dosae (3 pcs)',105],
+   ['Pudina Roast Dosae',148],['Udupi Spl - Benne Masala Dosae',148],
+ ]],
+ ['Rice', [
+   ['Curd Rice',81],['Khara Bhath',81],['Puliyogare Rice',90],['Tomato Bhath',119],
+   ['Veg Pulao',133],['Ven Pongal',100],['Vangi Bhath',86],['Chithranna',86],
+   ['Bisibelebhath and Raita',100],['Ghee Pudi Khara Bhath',95],
+ ]],
+ ['Hand Tossed', [
+   ['Rasam Rice Bowl',133],['Pappu Rice Bowl',124],['Avakaya Muddu Pappu',186],
+   ['Tomato Avalakki Bath',124],['Lemon Idli',105],['Ghee Pudi Rice',143],
+   ['Gongura Rice',138],['Lemon Ottu Shavige',114],['Lemon Rice',114],
+   ['Mix Veg Avalakki',114],['Coconut Ottu Shavige',105],['Coconut Rice',133],
+   ['Tomato Ottu Shavige',105],
+ ]],
+ ['Roti', [
+   ['Akki Roti',90],['Ragi Roti',90],['Kerala Parotta',104.76],
+ ]],
+ ['Vada', [
+   ['Dahi Vada',95],['Mini Vada Sambar Dip',76],['Uddin Vada',57],['Rasam Vada',76],
+ ]],
+ ['Poori', [
+   ['Poori Sagu',105],
+ ]],
+ ['Bun Maska', [
+   ['Bun Maska',76],['Pal Bun with Badam Milk',133],
+ ]],
  ['Fresh Juice', [
    ['Banana Lassi',76],['Pink Guava',110],['ABC (Cold Pressed)',100],['Carrot Juice',100],
    ['Fresh Lime',48],['Lime Soda',67],['Mosambi Juice (Cold Pressed)',114],
@@ -175,9 +224,6 @@ const MENU = [
    ['Pista Ice Cream',81],['Butterscotch Ice Cream',81],['Chocolate Ice Cream',81],
    ['Mango Ice Cream',81],['Strawberry Ice Cream',81],['Vanilla Ice Cream',81],
  ]],
- ['Vada', [
-   ['Dahi Vada',95],['Mini Vada Sambar Dip',76],['Uddin Vada',57],['Rasam Vada',76],
- ]],
  ['Beverages', [
    ['Black Coffee',38],['Hot Badam Milk',52],['Boost',52],['Coffee',38],['Horlicks',52],
    ['Masala Tea',38],['Milk',29],['Water Bottle (300ml)',50],['Water Bottle (750ml)',100],
@@ -188,12 +234,6 @@ const MENU = [
    ['Red Rice Puttu',0],   /* price not printed on the board -- set it here */
    ['Bele Holige',67],['Panchamrutham',114],['Pheni with Saffron Badam Milk',133],
    ['Saffron Kashi Halwa',86],
- ]],
- ['Bun Maska', [
-   ['Bun Maska',76],['Pal Bun with Badam Milk',133],
- ]],
- ['Poori', [
-   ['Poori Sagu',105],
  ]],
 ];
 
@@ -232,6 +272,19 @@ function nextToken() {
   return s.n;
 }
 function peekToken() { return readTok().n + 1; }
+
+/* `n` is the number ALREADY used, so to make the next token show as 7 we
+   store 6. Setting it is how the counter picks up from the paper book in the
+   morning, or puts the number back after a slip is reprinted. */
+function setNextToken(next) {
+  const today = new Date().toISOString().slice(0, 10);
+  const s = { d: today, n: Math.max(0, Math.floor(next) - 1) };
+  memTok = s;
+  try { localStorage.setItem('tok', JSON.stringify(s)); } catch (e) {}
+  // No render here. It is called while the edit box is still in place of the
+  // number, so redrawing from here reads a #tokn that does not exist yet.
+  // showTokenNumber() puts the span back and renders.
+}
 
 function priceOf(key) {
   const [c, n] = key.split('|');
@@ -372,6 +425,40 @@ $('clear').onclick = () => {
     cart = {}; $('parcel').value = 0; renderGrid(); renderBill();
   }
 };
+
+/* Tap the number, type the one you want, Enter. Escape leaves it alone.
+   The span is swapped for an input and back again, so the click handler is
+   attached to whatever node is currently there rather than once at startup. */
+const tokHost = $('tokn').parentNode;
+
+function showTokenNumber() {
+  tokHost.innerHTML = '<span class="tokn num" id="tokn"></span>';
+  $('tokn').onclick = startTokenEdit;
+  renderBill();
+}
+
+function startTokenEdit() {
+  const inp = document.createElement('input');
+  inp.type = 'number'; inp.min = '1'; inp.id = 'tokedit'; inp.value = peekToken();
+  let closed = false;
+  const close = save => {
+    if (closed) return;                 // blur fires after Enter too
+    closed = true;
+    const v = parseInt(inp.value, 10);
+    if (save && Number.isFinite(v) && v >= 1) setNextToken(v);
+    showTokenNumber();
+  };
+  inp.onkeydown = e => {
+    if (e.key === 'Enter')  { e.preventDefault(); close(true); }
+    if (e.key === 'Escape') { e.preventDefault(); close(false); }
+  };
+  inp.onblur = () => close(true);
+  tokHost.innerHTML = '';
+  tokHost.appendChild(inp);
+  inp.focus(); inp.select();
+}
+
+$('tokn').onclick = startTokenEdit;
 
 $('q').oninput = e => { query = e.target.value; renderGrid(); };
 $('gst').onchange = renderBill;
