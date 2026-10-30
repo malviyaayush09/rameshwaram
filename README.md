@@ -20,6 +20,11 @@ internet needed — it is a single HTML file.
 Starts at 1 each morning and goes up by one every time a token is printed, so
 the number on the slip always means "nth order today".
 
+**Tap the number to change it.** Type the one you want the next token to be
+and press Enter; Escape leaves it alone. That is how you pick up from where
+the paper book left off in the morning, or put the number back after a slip
+has been reprinted. Anything below 1 is ignored.
+
 It is stored in the browser, which means:
 
 - **Use the same browser on the same machine.** Opening the file on a second
